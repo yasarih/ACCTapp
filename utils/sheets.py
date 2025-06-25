@@ -50,3 +50,5 @@ def get_material_release_sheet():
     return sheet.worksheet("MaterialRelease")
 
 
+def get_new_students_data():
+    return sheet.worksheet("newlyAssigned")
