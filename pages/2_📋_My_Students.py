@@ -3,9 +3,12 @@ import pandas as pd
 import re
 from datetime import date
 from utils.sheets import get_sales_sheet, get_student_data_sheet, get_new_students_data
-from utils.auth import restrict_access
 
-restrict_access(["EM", "DIRECTOR"])
+# ---- Login Protection ----
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.warning("🔐 Please log in from the home page.")
+    st.stop()
+
 st.set_page_config(page_title="Assign Students", page_icon="📝")
 
 # --- Load sheet and data ---
@@ -30,19 +33,60 @@ tab1, tab2 = st.tabs(["📋 Assigned Students", "➕ New Students"])
 
 with tab1:
     st.subheader("📋 Your Assigned Students")
+
     if "EM_Name" in student_df.columns:
         filtered_students = student_df[student_df["EM_Name"] == em_name]
 
         # Batch filter
-        batch_list = filtered_students["Batch"].dropna().unique().tolist() if "Batch" in filtered_students.columns else []
+        batch_list = filtered_students["Batch"].dropna().unique().tolist()
         selected_batch = st.selectbox("Filter by Batch", ["All"] + batch_list)
         if selected_batch != "All":
             filtered_students = filtered_students[filtered_students["Batch"] == selected_batch]
 
-        st.dataframe(filtered_students)
-    if "EM_Name" in student_df.columns:
-        filtered_students = student_df[student_df["EM_Name"] == em_name]
-        st.dataframe(filtered_students)
+        # Candidate ID selector to edit
+        candidate_ids = filtered_students["Candidate ID"].tolist()
+        selected_id = st.selectbox("Select Candidate to Edit", ["None"] + candidate_ids)
+
+        if selected_id != "None":
+            student_row = filtered_students[filtered_students["Candidate ID"] == selected_id].iloc[0]
+
+            st.subheader(f"✏️ Edit Student: {selected_id}")
+            with st.form("edit_student_form"):
+                name = st.text_input("Candidate Name", value=student_row.get("Candidate Name", ""))
+                contact = st.text_input("Contact Number", value=student_row.get("Contact Number", ""))
+                login = st.text_input("Login Credential", value=student_row.get("Login Credential", ""))
+                statusupdate = st.text_input("TypeOfAdmission", value=student_row.get("TypeOfAdmission", ""))
+                
+                onboarding_status = st.text_input("Onboarding Status", value=student_row.get("Onboarding Status", ""))
+                submit_edit = st.form_submit_button("Update")
+
+            if submit_edit:
+                try:
+                    # Find row number in sheet
+                    sheet_row_index = None
+                    for idx, row in enumerate(student_values[1:], start=2):  # +2 because header + 1-based
+                        if row[1] == selected_id:
+                            sheet_row_index = idx
+                            break
+
+                    if sheet_row_index:
+                        student_sheet.update(f"C{sheet_row_index}", name)
+                        student_sheet.update(f"D{sheet_row_index}", contact)
+                        student_sheet.update(f"E{sheet_row_index}", login)
+                        student_sheet.update(f"F{sheet_row_index}", batch)
+                        student_sheet.update(f"H{sheet_row_index}", first_call)
+                        student_sheet.update(f"N{sheet_row_index}", onboarding_status)
+
+                        st.success("✅ Student details updated.")
+                        st.rerun()
+                    else:
+                        st.error("❌ Candidate not found in the sheet.")
+                except Exception as e:
+                    st.error(f"❌ Update failed: {e}")
+
+        st.subheader("📋 Assigned Students Table")
+        st.dataframe(filtered_students, use_container_width=True)
+
     else:
         st.warning("EM_Name column missing in student data.")
 
@@ -76,8 +120,8 @@ with tab2:
                 st.session_state["candidate_name"] = match.iloc[0]["Name"]
                 st.session_state["contact"] = match.iloc[0]["Contact[WhatsApp no]"]
                 st.session_state["login"] = match.iloc[0]["Email ID"]
+
         today_date = date.today().strftime("%d/%m/%Y")
-        candidate_id = st.text_input("Candidate ID")
         candidate_name = st.text_input("Candidate Name", value=st.session_state.get("candidate_name", ""))
         contact = st.text_input("Contact Number", value=st.session_state.get("contact", ""))
         login = st.text_input("Login Credential", value=st.session_state.get("login", ""))
