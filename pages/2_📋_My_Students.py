@@ -73,8 +73,7 @@ with tab1:
                         student_sheet.update(f"C{sheet_row_index}", name)
                         student_sheet.update(f"D{sheet_row_index}", contact)
                         student_sheet.update(f"E{sheet_row_index}", login)
-                        student_sheet.update(f"F{sheet_row_index}", batch)
-                        student_sheet.update(f"H{sheet_row_index}", first_call)
+
                         student_sheet.update(f"N{sheet_row_index}", onboarding_status)
 
                         st.success("✅ Student details updated.")
