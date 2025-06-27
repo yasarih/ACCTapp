@@ -28,7 +28,7 @@ material_sheet = get_material_release_sheet()
 material_df = pd.DataFrame(material_sheet.get_all_records())
 attendance_df = pd.DataFrame(get_attendance_sheet().get_all_records())
 pp_df = pd.DataFrame(get_pptracking_sheet().get_all_records())
-#ppview = pd.DataFrame(get_pptracking_data_sheet().get_all_records()
+ppview = pd.DataFrame(get_pptracking_data_sheet().get_all_records())
     
 
 
@@ -37,7 +37,7 @@ guide_view_df = guide_df[guide_df.get("EM") == em_name]
 material_view_df = material_df[material_df.get("EM") == em_name]
 #attendance_view_df = attendance_df[attendance_df.get("EM") == em_name]
 pp_update_df = pp_df[pp_df["EM"] == em_name]
-#pp_view_df = ppview[ppview["EM"] == em_name]
+pp_view_df = ppview[ppview["EM"] == em_name]
 
 # Dropdown options
 all_options = pd.Series([
@@ -76,14 +76,14 @@ with tab1:
     if selected_batch != "All":
         guide_view_df = guide_view_df[guide_view_df["Batch"] == selected_batch]
         material_view_df = material_view_df[material_view_df["Batch"] == selected_batch]
-        #pp_view_df = pp_view_df[pp_view_df["Batch"] == selected_batch]
+        pp_view_df = pp_view_df[pp_view_df["Batch"] == selected_batch]
 
     # 🧾 Show PPT Tracking Table
     st.markdown("### 🧑‍🏫 PPT Tracking Progress")
-    #if not pp_view_df.empty:
-        #st.dataframe(pp_view_df, use_container_width=True)
-    #else:
-        #st.info("No PPT tracking data available.")
+    if not pp_view_df.empty:
+        st.dataframe(pp_view_df, use_container_width=True)
+    else:
+        st.info("No PPT tracking data available.")
 
     # 🧾 Show Guide Progress Table
     st.markdown("### 📚 Teaching Guide Progress")
