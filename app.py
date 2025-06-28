@@ -1,23 +1,30 @@
 import streamlit as st
 import pandas as pd
-from utils.sheets import get_login_data  # Make sure this exists and works
+from utils.sheets import get_login_data
 
-st.set_page_config(page_title="🔐 Login | Angle Belearn", page_icon="🔐")
+st.set_page_config(page_title="🔐 Login", page_icon="🔐")
 
-# Title
-st.title("🔐 Login to Angle Belearn Teacher Portal")
-
-# Load Login Sheet Data
+# Load login data
 login_sheet = get_login_data()
 data = login_sheet.get_all_values()
-df = pd.DataFrame(data[1:], columns=data[0]) if data else pd.DataFrame()
+df = pd.DataFrame(data[1:], columns=data[0])  # skip header
 
-# Login State
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
+# Already logged in
+if st.session_state.get("logged_in"):
+    st.title("📚 Angle Belearn Teacher Portal")
+    st.success(f"✅ Logged in as {st.session_state['user']} ({st.session_state['role']})")
 
-# Login Form
-if not st.session_state["logged_in"]:
+    if st.button("🚪 Logout"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.success("You have been logged out.")
+        st.rerun()
+
+    st.write("Use the sidebar to navigate.")
+
+# Not logged in
+else:
+    st.title("🔐 Login")
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -33,11 +40,3 @@ if not st.session_state["logged_in"]:
             st.rerun()
         else:
             st.error("❌ Invalid credentials. Please try again.")
-else:
-    st.success(f"✅ Welcome back, {st.session_state['user']} ({st.session_state['role']})")
-    st.info("Use the sidebar to access different sections.")
-
-    # Logout Button
-    if st.button("Logout"):
-        st.session_state["logged_in"] = False
-        st.rerun()

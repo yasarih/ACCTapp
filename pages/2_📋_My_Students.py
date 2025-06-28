@@ -14,7 +14,7 @@ st.set_page_config(page_title="Assign Students", page_icon="📝")
 # --- Load sheet and data ---
 sales_sheet = get_sales_sheet()
 sales_values = sales_sheet.get_all_values()
-sales_df = pd.DataFrame(sales_values[1:], columns=sales_values[0])  # skip header row
+sales_df = pd.DataFrame(sales_values[1:], columns=sales_values[0])
 
 student_sheet = get_student_data_sheet()
 student_values = student_sheet.get_all_values()
@@ -43,9 +43,9 @@ with tab1:
         if selected_batch != "All":
             filtered_students = filtered_students[filtered_students["Batch"] == selected_batch]
 
-        # Candidate ID selector to edit
+        # Candidate ID selector to edit/delete
         candidate_ids = filtered_students["Candidate ID"].tolist()
-        selected_id = st.selectbox("Select Candidate to Edit", ["None"] + candidate_ids)
+        selected_id = st.selectbox("Select Candidate to Edit or Delete", ["None"] + candidate_ids)
 
         if selected_id != "None":
             student_row = filtered_students[filtered_students["Candidate ID"] == selected_id].iloc[0]
@@ -55,37 +55,60 @@ with tab1:
                 name = st.text_input("Candidate Name", value=student_row.get("Candidate Name", ""))
                 contact = st.text_input("Contact Number", value=student_row.get("Contact Number", ""))
                 login = st.text_input("Login Credential", value=student_row.get("Login Credential", ""))
-                statusupdate = st.text_input("TypeOfAdmission", value=student_row.get("TypeOfAdmission", ""))
-                
+                admission_type = st.text_input("TypeOfAdmission", value=student_row.get("TypeOfAdmission", ""))
                 onboarding_status = st.text_input("Onboarding Status", value=student_row.get("Onboarding Status", ""))
                 submit_edit = st.form_submit_button("Update")
 
-            if submit_edit:
-                try:
-                    # Find row number in sheet
-                    sheet_row_index = None
-                    for idx, row in enumerate(student_values[1:], start=2):  # +2 because header + 1-based
-                        if row[1] == selected_id:
-                            sheet_row_index = idx
-                            break
+            delete_clicked = st.button("🗑️ Delete Student")
 
+            try:
+                # Find row number in sheet
+                sheet_row_index = None
+                for idx, row in enumerate(student_values[1:], start=2):
+                    if row[1] == selected_id:
+                        sheet_row_index = idx
+                        break
+
+                if delete_clicked:
                     if sheet_row_index:
-                        student_sheet.update(f"C{sheet_row_index}", name)
-                        student_sheet.update(f"D{sheet_row_index}", contact)
-                        student_sheet.update(f"E{sheet_row_index}", login)
+                        student_sheet.delete_rows(sheet_row_index)
+                        st.success("❌ Student deleted successfully!")
+                        st.rerun()
 
-                        student_sheet.update(f"N{sheet_row_index}", onboarding_status)
-
-                        st.success("✅ Student details updated.")
+                if submit_edit:
+                    if sheet_row_index:
+                        student_sheet.delete_rows(sheet_row_index)
+                        new_row = [
+                            date.today().strftime("%d/%m/%Y"),  # Date
+                            selected_id,
+                            name,
+                            contact,
+                            login,
+                            student_row.get("Batch", ""),
+                            admission_type,
+                            student_row.get("First Call", ""),
+                            student_row.get("Connection Mode", ""),
+                            student_row.get("First Msg From EM Team - WhatsApp", ""),
+                            student_row.get("Welcome Mail/ Confirmation mail", ""),
+                            student_row.get("Onboarding Schedule", ""),
+                            onboarding_status,
+                            student_row.get("Beginners Guide Status", ""),
+                            student_row.get("Class Updates", ""),
+                            student_row.get("2Month PG Diploma Course Status", ""),
+                            student_row.get("Sales Person", ""),
+                            em_name,
+                            student_row.get("Discount", "0")
+                        ]
+                        student_sheet.insert_row(new_row, len(student_values) + 1)
+                        st.success("✅ Student updated successfully!")
                         st.rerun()
                     else:
                         st.error("❌ Candidate not found in the sheet.")
-                except Exception as e:
-                    st.error(f"❌ Update failed: {e}")
+            except Exception as e:
+                st.error(f"❌ Operation failed: {e}")
 
         st.subheader("📋 Assigned Students Table")
         st.dataframe(filtered_students, use_container_width=True)
-
     else:
         st.warning("EM_Name column missing in student data.")
 
@@ -106,13 +129,10 @@ with tab2:
     st.divider()
     st.subheader("➕ Add New Student")
     with st.form("add_new_student_form"):
-        # Lookup from sales_df
         sales_lookup_df = sales_df[["Candidate ID", "Name", "Contact[WhatsApp no]", "Email ID"]].copy() if all(col in sales_df.columns for col in ["Candidate ID", "Name", "Contact[WhatsApp no]", "Email ID"]) else pd.DataFrame()
 
-        # Candidate ID input
         candidate_id = st.text_input("Candidate ID")
 
-        # Autofill details if available
         if candidate_id and not sales_lookup_df.empty:
             match = sales_lookup_df[sales_lookup_df["Candidate ID"] == candidate_id]
             if not match.empty:

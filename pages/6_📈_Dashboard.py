@@ -1,42 +1,61 @@
 import streamlit as st
 import pandas as pd
 from utils.sheets import (
-    get_sales_sheet,
     get_student_data_sheet,
-    get_attendance_sheet
+    get_teaching_guide_tracker,
+    get_material_release_sheet,
+    get_pptracking_sheet,
+    get_pptracking_data_sheet
 )
 from utils.auth import restrict_access
 
-restrict_access(["Head"])
-st.set_page_config(page_title="📈 Dashboard", page_icon="📊")
+# Restrict access to HEAD and DIRECTOR
+restrict_access(["Head", "DIRECTOR"])
 
-st.title("📊 Head Dashboard - Student & EM Insights")
+st.set_page_config(page_title="📊 EM Monitoring Dashboard", page_icon="📊")
+st.title("📊 EM-Wise Monitoring Dashboard")
 
-# === Load data ===
-spreadsheet_id = "1J5sw6MsChe_Fdhz76oR-JH8ljNqXPVLkb-JyVF-3_Qg"
+# Load data
+student_df = pd.DataFrame(get_student_data_sheet().get_all_records())
+guide_df = pd.DataFrame(get_teaching_guide_tracker().get_all_records())
+material_df = pd.DataFrame(get_material_release_sheet().get_all_records())
+pp_df = pd.DataFrame(get_pptracking_sheet().get_all_records())
+ppview = pd.DataFrame(get_pptracking_data_sheet().get_all_records())
 
-sales_df = get_sales_sheet()
-student_df = get_student_data_sheet()
+# Filter by EM
+em_list = sorted(set(guide_df["EM"].dropna().unique().tolist() +
+                    material_df["EM"].dropna().unique().tolist() +
+                    ppview["EM"].dropna().unique().tolist()))
 
+selected_em = st.selectbox("Select EM to Monitor", em_list)
 
-# === Assigned Students Count ===
-st.subheader("👥 Students Assigned to EMs")
-if "EM Name" in sales_df.columns:
-    em_counts = sales_df["EM Name"].value_counts().reset_index()
-    em_counts.columns = ["EM Name", "Total Assigned"]
-    st.dataframe(em_counts)
+# Filtered views
+guide_view_df = guide_df[guide_df["EM"] == selected_em]
+material_view_df = material_df[material_df["EM"] == selected_em]
+pp_view_df = ppview[ppview["EM"] == selected_em]
+
+# Show stats
+st.markdown(f"## 👤 EM: {selected_em}")
+st.markdown("### 🎯 Summary Stats")
+st.write(f"Total Assigned Candidates: {guide_view_df['Candidate ID'].nunique()}")
+st.write(f"Total Material Records: {material_view_df['Student ID'].nunique()}")
+st.write(f"Total PPT Entries: {pp_view_df['Candidate ID'].nunique()}")
+
+# Show Tables
+st.markdown("### 📚 Teaching Guide Progress")
+if not guide_view_df.empty:
+    st.dataframe(guide_view_df, use_container_width=True)
 else:
-    st.warning("Missing 'EM Name' column in salesData.")
+    st.info("No Teaching Guide data available for this EM.")
 
-# === Admitted vs Pending ===
-st.subheader("📌 Student Status")
-if "Candidate ID" in sales_df.columns:
-    admitted = sales_df[sales_df["Candidate ID"].str.strip() != ""]
-    pending = sales_df[sales_df["Candidate ID"].str.strip() == ""]
-    col1, col2 = st.columns(2)
-    col1.metric("✅ Admitted", len(admitted))
-    col2.metric("❌ Pending", len(pending))
+st.markdown("### 📦 Material Distribution")
+if not material_view_df.empty:
+    st.dataframe(material_view_df, use_container_width=True)
 else:
-    st.warning("Missing 'Candidate ID' column.")
+    st.info("No Material data available for this EM.")
 
-# === Attendance / Class Log Summary ===
+st.markdown("### 🧑‍🏫 PPT Tracking")
+if not pp_view_df.empty:
+    st.dataframe(pp_view_df, use_container_width=True)
+else:
+    st.info("No PPT Tracking data available for this EM.")
