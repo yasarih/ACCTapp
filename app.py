@@ -42,7 +42,7 @@ else:
         st.markdown("---")
 
         with st.form("login_form"):
-            username = st.text_input("👤 Username")
+            username = st.selectbox("👤 Username", ["Ayman", "Hisham", "Thansiq", "Abdullah", "Ihwaan"])  # ← changed
             password = st.text_input("🔑 Password", type="password")
             submit = st.form_submit_button("Login", use_container_width=True)
 
