@@ -1,0 +1,101 @@
+import streamlit as st
+import pandas as pd
+from utils.sheets import get_sheet
+
+st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
+
+if not st.session_state.get("logged_in"):
+    st.warning("⚠️ Please login first.")
+    st.stop()
+
+st.title("📊 Dashboard")
+
+# Load data
+income_df  = pd.DataFrame(get_sheet("income").get_all_records())
+expense_df = pd.DataFrame(get_sheet("expenses").get_all_records())
+
+if income_df.empty:
+    income_df = pd.DataFrame(columns=["Date","RecordedBy","Department","Type","Amount","Notes"])
+if expense_df.empty:
+    expense_df = pd.DataFrame(columns=["Date","RecordedBy","Department","Category","PaidTo","Amount","PaymentMode","Notes"])
+
+income_df["Amount"]  = pd.to_numeric(income_df["Amount"],  errors="coerce").fillna(0)
+expense_df["Amount"] = pd.to_numeric(expense_df["Amount"], errors="coerce").fillna(0)
+
+# Sidebar filters
+st.sidebar.header("🔍 Filters")
+
+all_months = sorted(set(
+    list(income_df["Date"].str[:7].unique()) +
+    list(expense_df["Date"].str[:7].unique())
+), reverse=True)
+
+selected_month = st.sidebar.selectbox("Month", ["All"] + all_months)
+selected_dept  = st.sidebar.selectbox("Department", ["All", "Masjid", "Durus"])
+selected_user  = st.sidebar.selectbox("Recorded By", ["All"] + sorted(income_df["RecordedBy"].unique().tolist()))
+
+def apply_filters(df):
+    if selected_month != "All":
+        df = df[df["Date"].str.startswith(selected_month)]
+    if selected_dept != "All":
+        df = df[df["Department"] == selected_dept]
+    if selected_user != "All" and "RecordedBy" in df.columns:
+        df = df[df["RecordedBy"] == selected_user]
+    return df
+
+inc = apply_filters(income_df)
+exp = apply_filters(expense_df)
+
+total_income  = inc["Amount"].sum()
+total_expense = exp["Amount"].sum()
+balance       = total_income - total_expense
+
+# Metric cards
+st.markdown("---")
+col1, col2, col3 = st.columns(3)
+col1.metric("💰 Total Income",  f"₹{total_income:,.0f}")
+col2.metric("💸 Total Expense", f"₹{total_expense:,.0f}")
+col3.metric("🏦 Balance",       f"₹{balance:,.0f}", delta=f"₹{balance:,.0f}")
+
+st.markdown("---")
+
+# Charts
+col_a, col_b = st.columns(2)
+
+with col_a:
+    st.subheader("Income by Type")
+    if not inc.empty:
+        st.bar_chart(inc.groupby("Type")["Amount"].sum())
+    else:
+        st.info("No income data for selected filters.")
+
+with col_b:
+    st.subheader("Expense by Category")
+    if not exp.empty:
+        st.bar_chart(exp.groupby("Category")["Amount"].sum())
+    else:
+        st.info("No expense data for selected filters.")
+
+st.markdown("---")
+
+# Department split
+col_c, col_d = st.columns(2)
+
+with col_c:
+    st.subheader("Income — Masjid vs Durus")
+    if not inc.empty:
+        st.bar_chart(inc.groupby("Department")["Amount"].sum())
+
+with col_d:
+    st.subheader("Expense — Masjid vs Durus")
+    if not exp.empty:
+        st.bar_chart(exp.groupby("Department")["Amount"].sum())
+
+st.markdown("---")
+st.subheader("Recent Transactions")
+
+tab1, tab2 = st.tabs(["Income", "Expenses"])
+with tab1:
+    st.dataframe(inc.sort_values("Date", ascending=False).head(15), use_container_width=True)
+with tab2:
+    st.dataframe(exp.sort_values("Date", ascending=False).head(15), use_container_width=True)
